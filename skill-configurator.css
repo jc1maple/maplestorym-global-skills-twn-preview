@@ -297,6 +297,46 @@ body.sc-locked { overflow: hidden; }
   white-space: nowrap;
 }
 
+.sc-slot-combo-badge {
+  background: rgba(22, 29, 37, .86);
+  border-radius: 4px;
+  bottom: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 950;
+  left: 5px;
+  line-height: 1;
+  padding: 3px 4px;
+  position: absolute;
+  text-shadow: -1px -1px #19212a, 1px -1px #19212a, -1px 1px #19212a, 1px 1px #19212a;
+  z-index: 2;
+}
+
+.sc-slot-combo-placeholder {
+  align-items: center;
+  background: #4f545b;
+  border: 2px solid #202831;
+  border-radius: 5px;
+  color: #fff;
+  display: flex;
+  font-size: 1.05rem;
+  font-weight: 950;
+  height: 58px;
+  justify-content: center;
+  text-shadow: 0 2px 2px #1d232a;
+  width: 58px;
+}
+
+.sc-combo-color-1 { color: #f5e73d; }
+.sc-combo-color-2 { color: #ff8661; }
+.sc-combo-color-3 { color: #68caff; }
+.sc-combo-color-4 { color: #ec78ec; }
+.sc-combo-color-5 { color: #ffb348; }
+.sc-combo-color-6 { color: #67df86; }
+.sc-combo-color-7 { color: #67e4ec; }
+.sc-combo-color-8 { color: #c985ff; }
+
 .sc-key {
   background: var(--sc-bar-deep);
   border: 1px solid rgba(255,255,255,.35);
@@ -511,6 +551,19 @@ body.sc-locked { overflow: hidden; }
   padding: 12px 16px 16px;
 }
 
+.sc-palette-section-title {
+  align-items: baseline;
+  color: #526071;
+  display: flex;
+  gap: 7px;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  padding: 3px 1px 1px;
+}
+
+.sc-palette-section-title strong { font-size: .66rem; }
+.sc-palette-section-title span { color: #8a929c; font-size: .55rem; font-weight: 700; }
+
 .sc-palette-card {
   align-items: center;
   background: #f5f6f7;
@@ -527,6 +580,11 @@ body.sc-locked { overflow: hidden; }
 
 .sc-palette-card:hover { background: #fff; border-color: #c9dce8; }
 .sc-palette-card:active { cursor: grabbing; }
+.sc-palette-card.is-combo {
+  background: #eef4f7;
+  border-color: #d6e3ea;
+}
+.sc-palette-card.is-combo:hover { background: #fff; border-color: var(--sc-blue); }
 .sc-palette-card img {
   background: #dfe3e6;
   border: 1px solid #27313d;
@@ -535,6 +593,41 @@ body.sc-locked { overflow: hidden; }
   image-rendering: pixelated;
   object-fit: cover;
   width: 44px;
+}
+
+.sc-palette-combo-visual {
+  display: block;
+  height: 44px;
+  position: relative;
+  width: 44px;
+}
+
+.sc-palette-combo-visual i {
+  align-items: center;
+  background: #515860;
+  border: 1px solid #27313d;
+  border-radius: 5px;
+  color: #fff;
+  display: flex;
+  font-size: .82rem;
+  font-style: normal;
+  font-weight: 900;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.sc-palette-combo-badge {
+  background: rgba(23, 30, 39, .9);
+  border-radius: 3px;
+  bottom: -3px;
+  font-size: .56rem;
+  font-weight: 950;
+  left: -3px;
+  line-height: 1;
+  padding: 2px 3px;
+  position: absolute;
+  text-shadow: -1px -1px #111820, 1px -1px #111820, -1px 1px #111820, 1px 1px #111820;
 }
 
 .sc-palette-card strong {
@@ -1366,6 +1459,21 @@ body.sc-locked { overflow: hidden; }
   width: 12.210526cqw;
 }
 
+.sc-mobile-gamepad .sc-slot-combo-placeholder {
+  border-width: 2px;
+  font-size: clamp(12px, 3.157895cqw, 15px);
+  height: 12.210526cqw;
+  width: 12.210526cqw;
+}
+
+.sc-mobile-gamepad .sc-slot-combo-badge {
+  background: rgba(22, 29, 37, .88);
+  bottom: 13%;
+  font-size: clamp(9px, 2.315789cqw, 11px);
+  left: 12%;
+  padding: clamp(1px, .421053cqw, 2px) clamp(2px, .631579cqw, 3px);
+}
+
 .sc-mobile-gamepad .sc-slot-name {
   display: none;
 }
@@ -1456,6 +1564,7 @@ body.sc-locked { overflow: hidden; }
   .sc-mobile-board.sc-mobile-gamepad { padding: 0; }
   .sc-mobile-gamepad .sc-slot { padding: 2.526315%; }
   .sc-mobile-gamepad .sc-slot img { height: 12.210526cqw; width: 12.210526cqw; }
+  .sc-mobile-gamepad .sc-slot-combo-placeholder { height: 12.210526cqw; width: 12.210526cqw; }
   .sc-mobile-gamepad .sc-slot-name { display: none; }
   .sc-mobile-gamepad .sc-mobile-page-switch { height: auto; padding: 0; width: 10.947368%; }
   .sc-mobile-gamepad .sc-mobile-page-switch img { height: auto; width: 100%; }

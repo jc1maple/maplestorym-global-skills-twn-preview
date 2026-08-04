@@ -10,12 +10,13 @@
   const CONFIG_ENDPOINT = String(
     queryApi || window.MSM_SKILL_CONFIG_ENDPOINT || window.MSM_VISITOR_LOG_ENDPOINT || ''
   ).replace(/\/+$/, '');
+  const COMBO_REF_PREFIX = '@combo:';
   const MODE_LABELS = {
-    mobile: ['技能按鍵', '依照遊戲 Type B 技能盤配置；點鍵帽可重新綁定按鍵。'],
+    mobile: ['技能按鍵', '依照遊戲 Type B 技能盤配置；可放單一技能或 P1–P8 組合技能。'],
     combo: ['組合技能', '依照遊戲 Preset 8×8 結構：P1–P8，每組可依序放入 8 個技能。'],
-    pc: ['PC 鍵盤配置', '依照 KeyboardShortcutPopup_PC：兩排 16 格與 4 個功能快捷欄。']
+    pc: ['PC 鍵盤配置', '兩排 16 格可放單一技能或 P1–P8；右側功能快捷欄只接受單一技能。']
   };
-  const TYPE_LABELS = { active: '主動', buff: 'BUFF' };
+  const TYPE_LABELS = { active: '主動', buff: 'BUFF', combo: '組合技能' };
   const DEFAULT_KEYS = {
     mobile: ['T', 'Tab', 'Delete', 'W', 'E', 'R', 'Q', 'Enter'],
     pc: [
@@ -72,9 +73,10 @@
             <button class="sc-filter is-active" type="button" data-type="all">全部</button>
             <button class="sc-filter" type="button" data-type="active">主動</button>
             <button class="sc-filter" type="button" data-type="buff">BUFF</button>
+            <button class="sc-filter" type="button" data-type="combo">組合</button>
           </div>
           <div class="sc-palette"></div>
-          <div class="sc-library-note">先點左側欄位，再點技能即可配置；桌面也可直接拖曳。技能按鈕右上角可移除。</div>
+          <div class="sc-library-note">先點左側欄位，再點技能即可配置；P1–P8 可放進技能按鍵與 PC 鍵盤，但不能放進另一個組合或功能快捷欄。</div>
         </aside>
       </div>
       <footer class="sc-footer">
@@ -156,6 +158,56 @@
   function currentJobName() {
     const code = currentJobCode();
     return [...jobSelect.options].find(option => option.value === code)?.textContent?.trim() || code;
+  }
+
+  function comboRef(index) {
+    return `${COMBO_REF_PREFIX}${index}`;
+  }
+
+  function comboIndexFromRef(value) {
+    const match = /^@combo:([0-7])$/.exec(String(value || ''));
+    return match ? Number(match[1]) : -1;
+  }
+
+  function comboAssignment(index, cfg = config()) {
+    if (!Number.isInteger(index) || index < 0 || index > 7) return null;
+    const items = cfg.combos?.[index] || [];
+    const lead = state.skillMap.get(items.find(id => state.skillMap.has(id)));
+    const meta = cfg.comboMeta?.[index] || {};
+    const used = items.filter(id => state.skillMap.has(id)).length;
+    const name = shortClientText(meta.name || `${index + 1} 號自訂`, 32);
+    const description = shortClientText(meta.description || '', 300);
+    return {
+      id: comboRef(index),
+      kind: 'combo',
+      comboIndex: index,
+      name,
+      description,
+      icon: lead?.icon || '',
+      type: 'combo',
+      stage: `P${index + 1} · ${used}/8`,
+      used,
+      searchable: `P${index + 1} ${name} ${description}`.toLocaleLowerCase('zh-Hant')
+    };
+  }
+
+  function assignmentForId(id, cfg = config()) {
+    const comboIndex = comboIndexFromRef(id);
+    if (comboIndex >= 0) return comboAssignment(comboIndex, cfg);
+    const skill = state.skillMap.get(id);
+    return skill ? { ...skill, kind: 'skill' } : null;
+  }
+
+  function canAssignTo(ref, id) {
+    if (!ref || !id) return false;
+    if (state.skillMap.has(id)) return true;
+    return comboIndexFromRef(id) >= 0 && (ref.area === 'mobile' || ref.area === 'pc');
+  }
+
+  function assignmentRestrictionMessage(id) {
+    return comboIndexFromRef(id) >= 0
+      ? '組合技能只能放在技能按鍵或 PC 鍵盤欄位'
+      : '這個項目不能放在目前欄位';
   }
 
   function extractSkills() {
@@ -407,16 +459,26 @@
 
   function slotMarkup(ref) {
     const id = ref.id;
-    const skill = id ? state.skillMap.get(id) : null;
+    const assignment = id ? assignmentForId(id) : null;
+    const isCombo = assignment?.kind === 'combo';
     const encoded = encodeURIComponent(JSON.stringify(refIdentity(ref)));
     const isTarget = sameTarget(ref, state.target);
     const key = ref.key != null
       ? `<button class="sc-key" type="button" data-key-ref="${encoded}" title="點一下後按新的鍵">${escapeHtml(ref.key || '未設定')}</button>`
       : '';
-    const content = skill
-      ? `<img src="${escapeAttr(skill.icon)}" alt=""><span class="sc-slot-name">${escapeHtml(skill.name)}</span><button class="sc-remove" type="button" aria-label="移除 ${escapeAttr(skill.name)}">×</button>`
+    const visual = assignment?.icon
+      ? `<img src="${escapeAttr(assignment.icon)}" alt="">`
+      : isCombo
+        ? `<span class="sc-slot-combo-placeholder">P${assignment.comboIndex + 1}</span>`
+        : '';
+    const comboBadge = isCombo
+      ? `<span class="sc-slot-combo-badge sc-combo-color-${assignment.comboIndex + 1}">P${assignment.comboIndex + 1}</span>`
+      : '';
+    const content = assignment
+      ? `${visual}${comboBadge}<span class="sc-slot-name">${escapeHtml(assignment.name)}</span><button class="sc-remove" type="button" aria-label="移除 ${escapeAttr(assignment.name)}">×</button>`
       : `<span class="sc-slot-number">${ref.index + 1}</span>`;
-    return `<div class="sc-slot sc-slot--${escapeAttr(ref.area)}${skill ? ' has-skill' : ' is-empty'}${isTarget ? ' is-target' : ''}" role="button" tabindex="0" draggable="${Boolean(skill)}" data-slot-ref="${encoded}" aria-label="${skill ? escapeAttr(skill.name) : `空白欄位 ${ref.index + 1}`}" title="${skill ? escapeAttr(skill.name) : '選擇此欄位'}">${key}${content}</div>`;
+    const comboTitle = isCombo ? `P${assignment.comboIndex + 1}｜${assignment.name}｜${assignment.used}/8 個技能` : assignment?.name;
+    return `<div class="sc-slot sc-slot--${escapeAttr(ref.area)}${assignment ? ' has-skill' : ' is-empty'}${isCombo ? ' has-combo' : ''}${isTarget ? ' is-target' : ''}" role="button" tabindex="0" draggable="${Boolean(assignment)}" data-slot-ref="${encoded}" aria-label="${assignment ? escapeAttr(comboTitle) : `空白欄位 ${ref.index + 1}`}" title="${assignment ? escapeAttr(comboTitle) : '選擇此欄位'}">${key}${content}</div>`;
   }
 
   function refIdentity(ref) {
@@ -495,11 +557,15 @@
         event.preventDefault();
         slot.classList.remove('is-over');
         const id = event.dataTransfer.getData('text/plain');
-        if (!state.skillMap.has(id)) return;
+        if (!canAssignTo(ref, id)) return showToast(assignmentRestrictionMessage(id));
         const originRaw = event.dataTransfer.getData('application/x-msm-origin');
-        const origin = originRaw ? JSON.parse(originRaw) : null;
+        let origin = null;
+        try { origin = originRaw ? JSON.parse(originRaw) : null; } catch (_) {}
         if (origin && !sameTarget(origin, ref)) {
           const displaced = getSlot(ref);
+          if (displaced && !canAssignTo(origin, displaced)) {
+            return showToast('無法交換：組合技能不能移入組合內容或功能快捷欄');
+          }
           setSlot(origin, displaced || null);
         }
         setSlot(ref, id);
@@ -529,13 +595,36 @@
 
   function renderPalette() {
     const query = state.libraryQuery.trim().toLocaleLowerCase('zh-Hant');
-    const filtered = state.skills.filter(skill => {
-      return (state.libraryType === 'all' || skill.type === state.libraryType) && (!query || skill.searchable.includes(query));
+    const filteredSkills = state.skills.filter(skill => {
+      const matchesType = state.libraryType === 'all' || skill.type === state.libraryType;
+      return state.libraryType !== 'combo' && matchesType && (!query || skill.searchable.includes(query));
     });
-    palette.innerHTML = filtered.length ? filtered.map(skill => `
+    const comboItems = state.mode === 'combo' || !['all', 'combo'].includes(state.libraryType)
+      ? []
+      : Array.from({ length: 8 }, (_, index) => comboAssignment(index))
+        .filter(item => item.used > 0 && (!query || item.searchable.includes(query)));
+    const comboCards = comboItems.map(item => `
+      <button class="sc-palette-card is-combo" type="button" draggable="true" data-skill-id="${escapeAttr(item.id)}" title="配置 P${item.comboIndex + 1}｜${escapeAttr(item.name)}">
+        <span class="sc-palette-combo-visual">
+          ${item.icon ? `<img src="${escapeAttr(item.icon)}" alt="">` : `<i>P${item.comboIndex + 1}</i>`}
+          <b class="sc-palette-combo-badge sc-combo-color-${item.comboIndex + 1}">P${item.comboIndex + 1}</b>
+        </span>
+        <span><strong>${escapeHtml(item.name)}</strong><span>組合技能 · ${item.used}/8</span></span>
+      </button>`).join('');
+    const skillCards = filteredSkills.map(skill => `
       <button class="sc-palette-card" type="button" draggable="true" data-skill-id="${escapeAttr(skill.id)}" title="配置 ${escapeAttr(skill.name)}">
         <img src="${escapeAttr(skill.icon)}" alt=""><span><strong>${escapeHtml(skill.name)}</strong><span>${TYPE_LABELS[skill.type]} · ${escapeHtml(skill.stage)}</span></span>
-      </button>`).join('') : '<p class="sc-empty-palette">找不到符合條件的技能</p>';
+      </button>`).join('');
+    const sections = [];
+    if (comboCards) sections.push(`<div class="sc-palette-section-title"><strong>組合技能 P1–P8</strong><span>可配置到技能按鍵與 PC 鍵盤</span></div>${comboCards}`);
+    if (skillCards) {
+      const skillTitle = comboCards ? '<div class="sc-palette-section-title"><strong>單一技能</strong></div>' : '';
+      sections.push(`${skillTitle}${skillCards}`);
+    }
+    if (!sections.length && state.libraryType === 'combo' && state.mode === 'combo') {
+      sections.push('<p class="sc-empty-palette">組合技能不能放進另一個組合技能；請切換到技能按鍵或 PC 鍵盤配置。</p>');
+    }
+    palette.innerHTML = sections.join('') || '<p class="sc-empty-palette">找不到符合條件的技能</p>';
 
     palette.querySelectorAll('.sc-palette-card').forEach(card => {
       const id = card.dataset.skillId;
@@ -551,9 +640,10 @@
     let target = state.target;
     if (!target) target = firstEmptyInCurrentMode();
     if (!target) return showToast('請先選擇一個欄位');
+    if (!canAssignTo(target, id)) return showToast(assignmentRestrictionMessage(id));
     setSlot(target, id);
     state.target = target;
-    saveStore('技能已配置');
+    saveStore(comboIndexFromRef(id) >= 0 ? '組合技能已配置' : '技能已配置');
     renderWorkspace();
   }
 
@@ -698,12 +788,12 @@
   function buildSkillCatalog(cfg) {
     const catalog = Object.create(null);
     usedSkillIds(cfg).forEach(id => {
-      const skill = state.skillMap.get(id);
-      catalog[id] = skill ? {
-        name: skill.name,
-        icon: skill.icon,
-        type: skill.type,
-        stage: skill.stage
+      const assignment = assignmentForId(id, cfg);
+      catalog[id] = assignment ? {
+        name: assignment.name,
+        icon: assignment.icon,
+        type: assignment.type,
+        stage: assignment.stage
       } : { name: id, icon: '', type: '', stage: '' };
     });
     return catalog;
@@ -796,6 +886,10 @@
     if (!tab) return;
     cancelKeyRecording();
     state.mode = tab.dataset.mode;
+    if (state.mode === 'combo' && state.libraryType === 'combo') {
+      state.libraryType = 'all';
+      shell.querySelectorAll('.sc-filter').forEach(item => item.classList.toggle('is-active', item.dataset.type === 'all'));
+    }
     state.target = null;
     render();
   });
