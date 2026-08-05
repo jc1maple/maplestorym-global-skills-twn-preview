@@ -5,7 +5,7 @@
   const jobSelect = document.getElementById('job');
   if (!openButton || !jobSelect) return;
 
-  const STORE_KEY = 'maplestorym-skill-config-v1';
+  const STORE_KEY = 'maplestorym-skill-config-v2';
   const queryApi = new URLSearchParams(window.location.search).get('skill_api');
   const CONFIG_ENDPOINT = String(
     queryApi || window.MSM_SKILL_CONFIG_ENDPOINT || window.MSM_VISITOR_LOG_ENDPOINT || ''
@@ -256,19 +256,12 @@
   }
 
   function makeGeneratedRecommendedConfig() {
-    const ids = state.skills.map(skill => skill.id);
     return {
       schemaVersion: 2,
-      mobilePages: [
-        Array.from({ length: 8 }, (_, i) => ids[i] || null),
-        Array.from({ length: 8 }, (_, i) => ids[i + 8] || null)
-      ],
+      mobilePages: Array.from({ length: 2 }, () => Array(8).fill(null)),
       combos: Array.from({ length: 8 }, () => Array(8).fill(null)),
       comboMeta: Array.from({ length: 8 }, (_, i) => ({ name: `${i + 1} 號自訂`, description: '' })),
-      pc: [
-        Array.from({ length: 8 }, (_, i) => i < 6 ? ids[i] || null : null),
-        Array.from({ length: 8 }, (_, i) => ids[i + 6] || null)
-      ],
+      pc: Array.from({ length: 2 }, () => Array(8).fill(null)),
       functions: Array(4).fill(null),
       slotNotes: {
         mobilePages: Array.from({ length: 2 }, () => Array(8).fill('')),
