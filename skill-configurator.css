@@ -1557,3 +1557,213 @@ body.sc-locked { overflow: hidden; }
   .sc-mobile-gamepad .sc-mobile-page-switch { height: auto; padding: 0; width: 10.947368%; }
   .sc-mobile-gamepad .sc-mobile-page-switch img { height: auto; width: 100%; }
 }
+
+/* Per-hotkey notes and job-wide play guide. */
+.sc-config-stack {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sc-mobile-config-stack {
+  max-width: 495px;
+  width: 100%;
+}
+
+.sc-slot.has-note::before {
+  border: 3px solid #e23b43;
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px rgba(226, 59, 67, .14);
+  content: "";
+  inset: 3px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.sc-mobile-gamepad .sc-slot.has-note::before {
+  border-radius: 50%;
+  border-width: clamp(2px, .842105cqw, 4px);
+  inset: 3%;
+}
+
+.sc-slot-note-panel,
+.sc-job-guide-panel {
+  background: #f4f4f4;
+  border: 8px solid transparent;
+  border-image-repeat: stretch;
+  border-image-slice: 12 fill;
+  border-image-source: url("assets/game-ui/skill-config/common-sliced/com_box_list_bg.png");
+  border-image-width: 12px;
+  color: #44505f;
+  min-width: 0;
+  padding: 12px 14px 14px;
+}
+
+.sc-slot-note-panel.is-idle {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-height: 92px;
+}
+
+.sc-note-pencil {
+  align-items: center;
+  background: #657f99;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  flex: 0 0 46px;
+  font-size: 1.35rem;
+  height: 46px;
+  justify-content: center;
+}
+
+.sc-slot-note-panel.is-idle div > span,
+.sc-job-guide-panel header small {
+  color: #7d8995;
+  display: block;
+  font-size: .55rem;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.sc-slot-note-panel.is-idle strong {
+  display: block;
+  font-size: .82rem;
+  margin-top: 2px;
+}
+
+.sc-slot-note-panel.is-idle p {
+  color: #7a8490;
+  font-size: .65rem;
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.sc-slot-note-head,
+.sc-job-guide-panel > header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sc-note-skill-icon {
+  align-items: center;
+  background: #4f545b;
+  border: 2px solid #222b35;
+  border-radius: 5px;
+  display: flex;
+  flex: 0 0 58px;
+  height: 58px;
+  justify-content: center;
+  position: relative;
+  width: 58px;
+}
+
+.sc-note-skill-icon img {
+  height: 54px;
+  image-rendering: pixelated;
+  object-fit: cover;
+  width: 54px;
+}
+
+.sc-note-skill-icon > span { color: #fff; font-size: .9rem; font-weight: 950; }
+.sc-note-combo-badge {
+  background: rgba(20, 27, 35, .9);
+  border-radius: 3px;
+  bottom: -4px;
+  font-size: .58rem;
+  left: -4px;
+  padding: 2px 3px;
+  position: absolute;
+  text-shadow: -1px -1px #111820, 1px -1px #111820, -1px 1px #111820, 1px 1px #111820;
+}
+
+.sc-slot-note-title { display: grid; gap: 3px; min-width: 0; }
+.sc-slot-note-title small { color: #75808c; font-size: .59rem; font-weight: 800; }
+.sc-slot-note-title strong { color: #354354; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sc-auto-save {
+  background: #e4edf2;
+  border-radius: 999px;
+  color: #587285;
+  font-size: .56rem;
+  font-weight: 850;
+  margin-left: auto;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.sc-slot-note-field,
+.sc-job-guide-panel label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  position: relative;
+}
+
+.sc-slot-note-field > span,
+.sc-job-guide-panel label > span {
+  color: #65717e;
+  font-size: .62rem;
+  font-weight: 850;
+}
+
+.sc-slot-note-field textarea,
+.sc-job-guide-panel textarea {
+  background: #fff;
+  border: 1px solid #c8ced4;
+  border-radius: 5px;
+  color: #354354;
+  font: inherit;
+  font-size: .68rem;
+  line-height: 1.55;
+  min-width: 0;
+  padding: 9px 10px 22px;
+  resize: vertical;
+  width: 100%;
+}
+
+.sc-slot-note-field textarea:focus,
+.sc-job-guide-panel textarea:focus {
+  border-color: var(--sc-blue);
+  box-shadow: 0 0 0 3px rgba(87, 151, 192, .14);
+  outline: 0;
+}
+
+.sc-slot-note-field > small,
+.sc-job-guide-panel label > small {
+  bottom: 6px;
+  color: #8a929c;
+  font-size: .54rem;
+  position: absolute;
+  right: 8px;
+}
+
+.sc-job-guide-panel {
+  border-left: 5px solid var(--sc-orange);
+}
+
+.sc-job-guide-panel > header span:first-child { display: grid; gap: 2px; }
+.sc-job-guide-panel > header strong { color: #354354; font-size: .9rem; }
+.sc-job-guide-panel > p {
+  color: #737f8b;
+  font-size: .64rem;
+  line-height: 1.5;
+  margin: -2px 0 10px;
+}
+
+.sc-job-guide-panel textarea { min-height: 145px; }
+
+@media (max-width: 470px) {
+  .sc-config-stack { gap: 9px; }
+  .sc-slot-note-panel,
+  .sc-job-guide-panel { padding: 9px 10px 11px; }
+  .sc-note-skill-icon { flex-basis: 48px; height: 48px; width: 48px; }
+  .sc-note-skill-icon img { height: 44px; width: 44px; }
+  .sc-auto-save { display: none; }
+  .sc-slot-note-field textarea { min-height: 105px; }
+  .sc-job-guide-panel textarea { min-height: 135px; }
+}

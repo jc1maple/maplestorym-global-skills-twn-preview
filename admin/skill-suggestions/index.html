@@ -54,16 +54,23 @@
     .detail-head p { color: var(--muted); font-size: 12px; margin: 5px 0 0; }
     .detail-body { display: grid; gap: 14px; padding: 14px; }
     .message { background: #eef5f9; border-left: 4px solid var(--blue); border-radius: 4px; color: #45586a; font-size: 13px; line-height: 1.55; margin: 0; padding: 10px 12px; white-space: pre-wrap; }
+    .job-guide { background: linear-gradient(135deg, #fff9f3, #fff); border: 1px solid #edc8b5; border-left: 5px solid var(--orange); border-radius: 8px; padding: 12px 14px; }
+    .job-guide h3 { color: #8e4b30; font-size: 14px; margin: 0 0 7px; }
+    .job-guide p { color: #554d49; font-size: 13px; line-height: 1.65; margin: 0; white-space: pre-wrap; }
+    .job-guide p.is-empty { color: var(--muted); font-style: italic; }
     .config-section { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
     .config-title { align-items: center; background: #526478; color: #fff; display: flex; font-size: 13px; font-weight: 800; justify-content: space-between; padding: 9px 12px; }
     .config-content { background: #f4f5f6; display: grid; gap: 10px; padding: 10px; }
     .page-block h4, .combo-block h4 { color: #586575; font-size: 12px; margin: 0 0 7px; }
     .slot-grid { display: grid; gap: 6px; grid-template-columns: repeat(8, minmax(70px, 1fr)); }
+    .slot-wrap { align-content: start; display: grid; gap: 5px; min-width: 0; }
     .slot { align-items: center; background: #fff; border: 1px solid #d5dbe0; border-radius: 6px; display: grid; gap: 4px; min-height: 74px; padding: 5px; place-items: center; text-align: center; }
     .slot.is-empty { background: #e3e5e7; color: #a2a8ae; }
     .slot img { border: 1px solid #26313d; border-radius: 3px; height: 42px; image-rendering: pixelated; width: 42px; }
     .slot b { color: #43505f; font-size: 10px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .slot small { background: #344357; border-radius: 3px; color: #fff; font-size: 9px; padding: 1px 4px; }
+    .slot-note { background: #fff7ed; border-left: 3px solid var(--orange); border-radius: 4px; color: #665248; font-size: 10px; line-height: 1.4; margin: 0; overflow-wrap: anywhere; padding: 5px 6px; white-space: pre-wrap; }
+    .slot-note strong { color: #a65331; display: block; font-size: 9px; margin-bottom: 2px; }
     .combo-block { background: #fff; border: 1px solid #dde2e6; border-radius: 7px; display: grid; gap: 8px; grid-template-columns: 190px minmax(0, 1fr); padding: 9px; }
     .combo-meta p { color: var(--muted); font-size: 11px; line-height: 1.45; margin: 0; white-space: pre-wrap; }
     .review { background: #f8f8f8; border-top: 1px solid var(--line); display: grid; gap: 10px; padding: 14px; }
@@ -120,6 +127,7 @@
       const listEl = document.getElementById('list');
       const detailEl = document.getElementById('detail');
       const countEl = document.getElementById('count');
+      const MOBILE_TO_PC = [4, 5, 6, 1, 2, 3, 0, 7];
       let suggestions = [];
       let defaults = [];
       let activeId = '';
@@ -219,8 +227,10 @@
         return id ? (catalog[id] || { name: id, icon: '' }) : null;
       }
 
-      function slotElement(id, index, key, catalog) {
+      function slotElement(id, index, key, catalog, note) {
         const info = skillInfo(id, catalog);
+        const wrap = document.createElement('div');
+        wrap.className = 'slot-wrap';
         const slot = document.createElement('div');
         slot.className = 'slot' + (info ? '' : ' is-empty');
         if (key) {
@@ -243,13 +253,22 @@
         } else {
           slot.append(String(index + 1));
         }
-        return slot;
+        wrap.append(slot);
+        if (typeof note === 'string' && note.trim()) {
+          const noteEl = document.createElement('p');
+          noteEl.className = 'slot-note';
+          const label = document.createElement('strong');
+          label.textContent = '使用註記';
+          noteEl.append(label, note.trim());
+          wrap.append(noteEl);
+        }
+        return wrap;
       }
 
-      function slotsBlock(items, keys, catalog) {
+      function slotsBlock(items, keys, catalog, notes) {
         const grid = document.createElement('div');
         grid.className = 'slot-grid';
-        items.forEach((id, index) => grid.append(slotElement(id, index, keys?.[index], catalog)));
+        items.forEach((id, index) => grid.append(slotElement(id, index, keys?.[index], catalog, notes?.[index])));
         return grid;
       }
 
@@ -265,12 +284,12 @@
         return { section, content };
       }
 
-      function pageBlock(title, items, keys, catalog) {
+      function pageBlock(title, items, keys, catalog, notes) {
         const block = document.createElement('div');
         block.className = 'page-block';
         const heading = document.createElement('h4');
         heading.textContent = title;
-        block.append(heading, slotsBlock(items, keys, catalog));
+        block.append(heading, slotsBlock(items, keys, catalog, notes));
         return block;
       }
 
@@ -279,8 +298,22 @@
         const catalog = suggestion.skill_catalog || {};
         const fragment = document.createDocumentFragment();
 
+        const jobGuide = document.createElement('section');
+        jobGuide.className = 'job-guide';
+        const jobGuideTitle = document.createElement('h3');
+        jobGuideTitle.textContent = '職業爆發與整體玩法';
+        const jobGuideDescription = document.createElement('p');
+        const guideText = typeof cfg.jobGuide?.description === 'string' ? cfg.jobGuide.description.trim() : '';
+        jobGuideDescription.textContent = guideText || '沒有填寫';
+        jobGuideDescription.classList.toggle('is-empty', !guideText);
+        jobGuide.append(jobGuideTitle, jobGuideDescription);
+        fragment.append(jobGuide);
+
         const mobile = configSection('技能按鍵 · 兩頁各 8 格');
-        cfg.mobilePages.forEach((items, page) => mobile.content.append(pageBlock(`頁面 ${page + 1}`, items, cfg.keys.mobile, catalog)));
+        cfg.mobilePages.forEach((items, page) => {
+          const keys = MOBILE_TO_PC.map((pcIndex, mobileIndex) => cfg.keys.pc?.[page]?.[pcIndex] || cfg.keys.mobile?.[mobileIndex] || '');
+          mobile.content.append(pageBlock(`頁面 ${page + 1}`, items, keys, catalog, cfg.slotNotes?.mobilePages?.[page]));
+        });
         fragment.append(mobile.section);
 
         const combo = configSection('組合技能 · 8 組 × 8 格');
@@ -300,8 +333,8 @@
         fragment.append(combo.section);
 
         const pc = configSection('PC 鍵盤配置');
-        cfg.pc.forEach((items, page) => pc.content.append(pageBlock(`技能快速欄位頁面 ${page + 1}`, items, cfg.keys.pc[page], catalog)));
-        pc.content.append(pageBlock('功能快捷欄位', cfg.functions, cfg.keys.functions, catalog));
+        cfg.pc.forEach((items, page) => pc.content.append(pageBlock(`技能快速欄位頁面 ${page + 1}`, items, cfg.keys.pc[page], catalog, cfg.slotNotes?.pc?.[page])));
+        pc.content.append(pageBlock('功能快捷欄位', cfg.functions, cfg.keys.functions, catalog, cfg.slotNotes?.functions));
         fragment.append(pc.section);
         return fragment;
       }

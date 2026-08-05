@@ -12,9 +12,9 @@
   ).replace(/\/+$/, '');
   const COMBO_REF_PREFIX = '@combo:';
   const MODE_LABELS = {
-    mobile: ['技能按鍵', '依照遊戲 Type B 技能盤配置；可放單一技能或 P1–P8 組合技能。'],
+    mobile: ['技能按鍵', '依照遊戲 Type B 技能盤配置；與 PC 鍵盤相同鍵位雙向同步。'],
     combo: ['組合技能', '依照遊戲 Preset 8×8 結構：P1–P8，每組可依序放入 8 個技能。'],
-    pc: ['PC 鍵盤配置', '兩排 16 格可放單一技能或 P1–P8；右側功能快捷欄只接受單一技能。']
+    pc: ['PC 鍵盤配置', '兩頁快捷欄與技能圓盤相同鍵位雙向同步；功能快捷欄獨立設定。']
   };
   const TYPE_LABELS = { active: '主動', buff: 'BUFF', combo: '組合技能' };
   const DEFAULT_KEYS = {
@@ -25,6 +25,10 @@
     ],
     functions: ['1', '2', '3', '4']
   };
+  // Type B round-pad positions: T, Tab, Delete / W, E, R / Q, Enter.
+  // PC pages list keys horizontally: Q, W, E, R, T, Tab, Delete, Enter.
+  const MOBILE_TO_PC = [4, 5, 6, 1, 2, 3, 0, 7];
+  const PC_TO_MOBILE = [6, 3, 4, 5, 0, 1, 2, 7];
 
   const state = {
     mode: 'mobile',
@@ -41,6 +45,7 @@
     defaultRequests: new Map(),
     toastTimer: 0,
     metaSaveTimer: 0,
+    noteSaveTimer: 0,
     submitting: false
   };
 
@@ -104,7 +109,7 @@
             <textarea name="message" maxlength="500" rows="4" placeholder="例如：打王配置、練等配置，或推薦這樣安排的原因"></textarea>
           </label>
           <label class="sc-honeypot" aria-hidden="true">網站<input name="website" tabindex="-1" autocomplete="off"></label>
-          <p class="sc-submit-note">會送出目前職業的兩頁技能按鍵、8 組組合技能與 PC 鍵盤配置；不會送出其他職業的草稿。</p>
+          <p class="sc-submit-note">會送出目前職業的兩頁技能按鍵、8 組組合技能、PC 鍵盤配置、每個按鍵的使用註記，以及職業爆發與整體玩法說明。</p>
           <p class="sc-submit-error" role="alert"></p>
           <div class="sc-submit-actions">
             <button type="button" class="sc-button sc-submit-cancel">取消</button>
@@ -256,6 +261,12 @@
         Array.from({ length: 8 }, (_, i) => ids[i + 6] || null)
       ],
       functions: Array(4).fill(null),
+      slotNotes: {
+        mobilePages: Array.from({ length: 2 }, () => Array(8).fill('')),
+        pc: Array.from({ length: 2 }, () => Array(8).fill('')),
+        functions: Array(4).fill('')
+      },
+      jobGuide: { description: '' },
       keys: {
         mobile: [...DEFAULT_KEYS.mobile],
         pc: DEFAULT_KEYS.pc.map(row => [...row]),
@@ -271,26 +282,55 @@
 
   function normalizeConfig(config, fallback = recommendedForCurrentJob()) {
     const fresh = fallback && typeof fallback === 'object' ? fallback : makeGeneratedRecommendedConfig();
-    if (!config || typeof config !== 'object') return fresh;
-    const legacyMobile = Array.isArray(config.mobile) ? config.mobile : null;
+    const source = config && typeof config === 'object' ? config : fresh;
+    const legacyMobile = Array.isArray(source.mobile) ? source.mobile : null;
+    const mobilePages = Array.from({ length: 2 }, (_, page) => fixedArray(
+      source.mobilePages?.[page] || (page === 0 ? legacyMobile : null),
+      8,
+      fresh.mobilePages?.[page] || []
+    ));
+    const pc = Array.from({ length: 2 }, (_, page) => fixedArray(source.pc?.[page], 8, fresh.pc?.[page] || []));
+    const mobileNotes = Array.from({ length: 2 }, (_, page) => fixedTextArray(source.slotNotes?.mobilePages?.[page], 8, 300));
+    const pcNotes = Array.from({ length: 2 }, (_, page) => fixedTextArray(source.slotNotes?.pc?.[page], 8, 300));
+    for (let page = 0; page < 2; page += 1) {
+      for (let mobileIndex = 0; mobileIndex < 8; mobileIndex += 1) {
+        const pcIndex = MOBILE_TO_PC[mobileIndex];
+        const assignment = mobilePages[page][mobileIndex] ?? pc[page][pcIndex] ?? null;
+        const note = mobileNotes[page][mobileIndex] || pcNotes[page][pcIndex] || '';
+        mobilePages[page][mobileIndex] = assignment;
+        pc[page][pcIndex] = assignment;
+        mobileNotes[page][mobileIndex] = note;
+        pcNotes[page][pcIndex] = note;
+      }
+    }
+    const pcKeys = Array.from({ length: 2 }, (_, page) => fixedArray(source.keys?.pc?.[page], 8, fresh.keys.pc[page]));
+    if (!Array.isArray(source.keys?.pc?.[0]) && Array.isArray(source.keys?.mobile)) {
+      fixedArray(source.keys.mobile, 8, fresh.keys.mobile).forEach((key, mobileIndex) => {
+        pcKeys[0][MOBILE_TO_PC[mobileIndex]] = key;
+      });
+    }
     return {
       schemaVersion: 2,
-      mobilePages: Array.from({ length: 2 }, (_, page) => fixedArray(
-        config.mobilePages?.[page] || (page === 0 ? legacyMobile : null),
-        8,
-        fresh.mobilePages?.[page] || []
-      )),
-      combos: Array.from({ length: 8 }, (_, i) => fixedArray(config.combos?.[i], 8, [])),
+      mobilePages,
+      combos: Array.from({ length: 8 }, (_, i) => fixedArray(source.combos?.[i], 8, fresh.combos?.[i] || [])),
       comboMeta: Array.from({ length: 8 }, (_, i) => ({
-        name: shortClientText(config.comboMeta?.[i]?.name || fresh.comboMeta?.[i]?.name || `${i + 1} 號自訂`, 32),
-        description: shortClientText(config.comboMeta?.[i]?.description || '', 300)
+        name: shortClientText(source.comboMeta?.[i]?.name || fresh.comboMeta?.[i]?.name || `${i + 1} 號自訂`, 32),
+        description: shortClientText(source.comboMeta?.[i]?.description || '', 300)
       })),
-      pc: Array.from({ length: 2 }, (_, i) => fixedArray(config.pc?.[i], 8, fresh.pc[i])),
-      functions: fixedArray(config.functions, 4, fresh.functions),
+      pc,
+      functions: fixedArray(source.functions, 4, fresh.functions),
+      slotNotes: {
+        mobilePages: mobileNotes,
+        pc: pcNotes,
+        functions: fixedTextArray(source.slotNotes?.functions, 4, 300)
+      },
+      jobGuide: {
+        description: shortClientText(source.jobGuide?.description || '', 2000)
+      },
       keys: {
-        mobile: fixedArray(config.keys?.mobile, 8, fresh.keys.mobile),
-        pc: Array.from({ length: 2 }, (_, i) => fixedArray(config.keys?.pc?.[i], 8, fresh.keys.pc[i])),
-        functions: fixedArray(config.keys?.functions, 4, fresh.keys.functions)
+        mobile: MOBILE_TO_PC.map(pcIndex => pcKeys[0][pcIndex]),
+        pc: pcKeys,
+        functions: fixedArray(source.keys?.functions, 4, fresh.keys.functions)
       }
     };
   }
@@ -307,6 +347,11 @@
   function fixedArray(value, length, fallback) {
     const source = Array.isArray(value) ? value : fallback;
     return Array.from({ length }, (_, i) => source?.[i] ?? null);
+  }
+
+  function fixedTextArray(value, length, maxLength) {
+    const source = Array.isArray(value) ? value : [];
+    return Array.from({ length }, (_, i) => shortClientText(source[i] || '', maxLength));
   }
 
   function config() {
@@ -384,7 +429,7 @@
     workspace.innerHTML = `<div class="sc-workspace-inner">
       <div class="sc-mode-heading">
         <div><h3>${title}</h3><p>${description}</p></div>
-        <span class="sc-help-chip">點欄位 → 選技能　／　拖曳配置</span>
+        <span class="sc-help-chip">點按鍵 → 配置技能／撰寫註記</span>
       </div>${body}</div>`;
     bindSlots();
   }
@@ -392,20 +437,24 @@
   function renderMobile() {
     const page = state.mobilePage;
     const slots = config().mobilePages[page];
-    return `<div class="sc-mobile-frame">
-      <div class="sc-mobile-board sc-mobile-gamepad">
-        ${slots.map((id, index) => slotMarkup({ area: 'mobile', page, index, id, key: config().keys.mobile[index] })).join('')}
-        <aside class="sc-mobile-page-control" aria-label="技能按鍵換頁">
-          <span class="sc-game-page-indicator" aria-hidden="true">
-            <img class="sc-page-indicator-bg" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/Preset_page_bg.png" alt="">
-            <img class="sc-page-indicator-dot sc-page-indicator-dot--one" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/${page === 0 ? 'Preset_page_A.png' : 'Preset_page_D.png'}" alt="">
-            <img class="sc-page-indicator-dot sc-page-indicator-dot--two" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/${page === 1 ? 'Preset_page_A.png' : 'Preset_page_D.png'}" alt="">
-          </span>
-          <button class="sc-mobile-page-switch" type="button" aria-label="切換到技能按鍵頁面 ${page === 0 ? 2 : 1}" title="切換技能按鍵頁面">
-            <img src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/Swap_btn_L.png" alt="">
-          </button>
-        </aside>
+    return `<div class="sc-config-stack sc-mobile-config-stack">
+      <div class="sc-mobile-frame">
+        <div class="sc-mobile-board sc-mobile-gamepad">
+          ${slots.map((id, index) => slotMarkup({ area: 'mobile', page, index, id, key: getKey({ area: 'mobile', page, index }) })).join('')}
+          <aside class="sc-mobile-page-control" aria-label="技能按鍵換頁">
+            <span class="sc-game-page-indicator" aria-hidden="true">
+              <img class="sc-page-indicator-bg" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/Preset_page_bg.png" alt="">
+              <img class="sc-page-indicator-dot sc-page-indicator-dot--one" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/${page === 0 ? 'Preset_page_A.png' : 'Preset_page_D.png'}" alt="">
+              <img class="sc-page-indicator-dot sc-page-indicator-dot--two" src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/${page === 1 ? 'Preset_page_A.png' : 'Preset_page_D.png'}" alt="">
+            </span>
+            <button class="sc-mobile-page-switch" type="button" aria-label="切換到技能按鍵頁面 ${page === 0 ? 2 : 1}" title="切換技能按鍵頁面">
+              <img src="/maplestorym-global-skills-twn-preview/assets/game-ui/skill-config/main-hud/Swap_btn_L.png" alt="">
+            </button>
+          </aside>
+        </div>
       </div>
+      ${renderSlotNoteEditor()}
+      ${renderJobGuideEditor()}
     </div>`;
   }
 
@@ -430,9 +479,12 @@
         </div>
       </section>`;
     }).join('');
-    return `<div class="sc-combo-layout">
-      <div class="sc-combo-title"><strong>技能自訂</strong><span>觀看順序　●</span></div>
-      <div class="sc-combo-groups" aria-label="組合技能群組">${groups}</div>
+    return `<div class="sc-config-stack">
+      <div class="sc-combo-layout">
+        <div class="sc-combo-title"><strong>技能自訂</strong><span>觀看順序　●</span></div>
+        <div class="sc-combo-groups" aria-label="組合技能群組">${groups}</div>
+      </div>
+      ${renderJobGuideEditor()}
     </div>`;
   }
 
@@ -442,17 +494,80 @@
       <div class="sc-pc-grid">${items.map((id, index) => slotMarkup({ area: 'pc', page, index, id, key: config().keys.pc[page][index] })).join('')}</div>
     </section>`).join('');
     const functions = config().functions.map((id, index) => slotMarkup({ area: 'functions', index, id, key: config().keys.functions[index] })).join('');
-    return `<div class="sc-pc-layout">
-      <div class="sc-pc-pages">${pages}</div>
-      <aside class="sc-pc-side">
-        <div class="sc-function-title">功能快捷欄位</div>
-        <div class="sc-function-grid">${functions}</div>
-        <div class="sc-pc-options">
-          <div><span>操作類型設定</span><b>類型 B　●</b></div>
-          <div><span>快捷欄位尺寸套用 2 倍率</span><b>○　off</b></div>
-        </div>
-      </aside>
+    return `<div class="sc-config-stack">
+      <div class="sc-pc-layout">
+        <div class="sc-pc-pages">${pages}</div>
+        <aside class="sc-pc-side">
+          <div class="sc-function-title">功能快捷欄位</div>
+          <div class="sc-function-grid">${functions}</div>
+          <div class="sc-pc-options">
+            <div><span>操作類型設定</span><b>類型 B　●</b></div>
+            <div><span>快捷欄位尺寸套用 2 倍率</span><b>○　off</b></div>
+          </div>
+        </aside>
+      </div>
+      ${renderSlotNoteEditor()}
+      ${renderJobGuideEditor()}
     </div>`;
+  }
+
+  function renderSlotNoteEditor() {
+    const ref = state.target;
+    const canDescribe = ref && ['mobile', 'pc', 'functions'].includes(ref.area);
+    const assignment = canDescribe ? assignmentForId(getSlot(ref)) : null;
+    if (!canDescribe || !assignment) {
+      const message = canDescribe
+        ? '這個按鍵目前是空的；先配置技能或組合技能後即可撰寫用法。'
+        : '點選上方任一已配置按鍵，說明這個技能怎麼用、什麼時候使用。';
+      return `<section class="sc-slot-note-panel is-idle" aria-label="按鍵使用註記">
+        <span class="sc-note-pencil" aria-hidden="true">✎</span>
+        <div><span>BUTTON NOTE</span><strong>按鍵使用註記</strong><p>${message}</p></div>
+      </section>`;
+    }
+    const encoded = encodeURIComponent(JSON.stringify(refIdentity(ref)));
+    const note = getSlotNote(ref);
+    const key = getKey(ref) || '未設定';
+    const isCombo = assignment.kind === 'combo';
+    const visual = assignment.icon
+      ? `<img src="${escapeAttr(assignment.icon)}" alt="">`
+      : isCombo ? `<span>P${assignment.comboIndex + 1}</span>` : '<span>技</span>';
+    const comboBadge = isCombo
+      ? `<b class="sc-note-combo-badge sc-combo-color-${assignment.comboIndex + 1}">P${assignment.comboIndex + 1}</b>`
+      : '';
+    return `<section class="sc-slot-note-panel" aria-label="${escapeAttr(assignment.name)} 按鍵使用註記">
+      <header class="sc-slot-note-head">
+        <span class="sc-note-skill-icon">${visual}${comboBadge}</span>
+        <span class="sc-slot-note-title"><small>${escapeHtml(slotLocationLabel(ref))} · ${escapeHtml(key)}</small><strong>${escapeHtml(assignment.name)}</strong></span>
+        <span class="sc-auto-save">自動儲存</span>
+      </header>
+      <label class="sc-slot-note-field">
+        <span>使用時機與操作說明</span>
+        <textarea class="sc-slot-note-input" data-note-ref="${encoded}" maxlength="300" rows="4" placeholder="例如：進場先施放、爆發前開啟、Boss 進入無敵後保留，或說明搭配技能與操作順序…">${escapeHtml(note)}</textarea>
+        <small><span class="sc-slot-note-count">${note.length}</span> / 300</small>
+      </label>
+    </section>`;
+  }
+
+  function renderJobGuideEditor() {
+    const description = config().jobGuide.description;
+    return `<section class="sc-job-guide-panel" aria-label="職業爆發與整體玩法">
+      <header>
+        <span><small>JOB PLAY GUIDE</small><strong>職業爆發與整體玩法</strong></span>
+        <span class="sc-auto-save">自動儲存</span>
+      </header>
+      <p>整理爆發前準備、Buff 與技能順序、平時循環、保命方式及 Boss 注意事項，讓其他玩家了解整體玩法。</p>
+      <label>
+        <span>玩法建議</span>
+        <textarea class="sc-job-guide-input" maxlength="2000" rows="7" placeholder="例如：120 秒爆發流程、入場準備、主要輸出循環、爆發空窗期操作、位移與保命技能使用時機…">${escapeHtml(description)}</textarea>
+        <small><span class="sc-job-guide-count">${description.length}</span> / 2000</small>
+      </label>
+    </section>`;
+  }
+
+  function slotLocationLabel(ref) {
+    if (ref.area === 'mobile') return `技能按鍵第 ${(ref.page ?? state.mobilePage) + 1} 頁`;
+    if (ref.area === 'pc') return `PC 鍵盤第 ${ref.page + 1} 頁`;
+    return '功能快捷欄';
   }
 
   function slotMarkup(ref) {
@@ -461,6 +576,7 @@
     const isCombo = assignment?.kind === 'combo';
     const encoded = encodeURIComponent(JSON.stringify(refIdentity(ref)));
     const isTarget = sameTarget(ref, state.target);
+    const hasNote = Boolean(assignment && getSlotNote(ref).trim());
     const key = ref.key != null
       ? `<button class="sc-key" type="button" data-key-ref="${encoded}" title="點一下後按新的鍵">${escapeHtml(ref.key || '未設定')}</button>`
       : '';
@@ -476,7 +592,8 @@
       ? `${visual}${comboBadge}<span class="sc-slot-name">${escapeHtml(assignment.name)}</span><button class="sc-remove" type="button" aria-label="移除 ${escapeAttr(assignment.name)}">×</button>`
       : `<span class="sc-slot-number">${ref.index + 1}</span>`;
     const comboTitle = isCombo ? `P${assignment.comboIndex + 1}｜${assignment.name}｜${assignment.used}/8 個技能` : assignment?.name;
-    return `<div class="sc-slot sc-slot--${escapeAttr(ref.area)}${assignment ? ' has-skill' : ' is-empty'}${isCombo ? ' has-combo' : ''}${isTarget ? ' is-target' : ''}" role="button" tabindex="0" draggable="${Boolean(assignment)}" data-slot-ref="${encoded}" aria-label="${assignment ? escapeAttr(comboTitle) : `空白欄位 ${ref.index + 1}`}" title="${assignment ? escapeAttr(comboTitle) : '選擇此欄位'}">${key}${content}</div>`;
+    const title = assignment ? `${comboTitle}${hasNote ? '｜已有註記' : ''}` : '選擇此欄位';
+    return `<div class="sc-slot sc-slot--${escapeAttr(ref.area)}${assignment ? ' has-skill' : ' is-empty'}${isCombo ? ' has-combo' : ''}${hasNote ? ' has-note' : ''}${isTarget ? ' is-target' : ''}" role="button" tabindex="0" draggable="${Boolean(assignment)}" data-slot-ref="${encoded}" aria-label="${assignment ? escapeAttr(title) : `空白欄位 ${ref.index + 1}`}" title="${escapeAttr(title)}">${key}${content}</div>`;
   }
 
   function refIdentity(ref) {
@@ -523,6 +640,34 @@
       field.addEventListener('change', () => saveStore('組合資料已儲存'));
     });
 
+    const slotNoteInput = workspace.querySelector('.sc-slot-note-input');
+    if (slotNoteInput) {
+      slotNoteInput.addEventListener('input', () => {
+        const ref = decodeRef(slotNoteInput.dataset.noteRef);
+        const value = shortClientText(slotNoteInput.value, 300);
+        setSlotNote(ref, value);
+        const counter = workspace.querySelector('.sc-slot-note-count');
+        if (counter) counter.textContent = String(value.length);
+        workspace.querySelector('.sc-slot.is-target')?.classList.toggle('has-note', Boolean(value.trim()));
+        clearTimeout(state.noteSaveTimer);
+        state.noteSaveTimer = setTimeout(() => saveStore(), 250);
+      });
+      slotNoteInput.addEventListener('change', () => saveStore('按鍵註記已儲存'));
+    }
+
+    const jobGuideInput = workspace.querySelector('.sc-job-guide-input');
+    if (jobGuideInput) {
+      jobGuideInput.addEventListener('input', () => {
+        const value = shortClientText(jobGuideInput.value, 2000);
+        config().jobGuide.description = value;
+        const counter = workspace.querySelector('.sc-job-guide-count');
+        if (counter) counter.textContent = String(value.length);
+        clearTimeout(state.noteSaveTimer);
+        state.noteSaveTimer = setTimeout(() => saveStore(), 250);
+      });
+      jobGuideInput.addEventListener('change', () => saveStore('職業玩法已儲存'));
+    }
+
     workspace.querySelectorAll('.sc-slot').forEach(slot => {
       const ref = decodeRef(slot.dataset.slotRef);
       slot.addEventListener('click', event => {
@@ -562,9 +707,15 @@
           if (displaced && !canAssignTo(origin, displaced)) {
             return showToast('無法交換：組合技能不能移入組合內容或功能快捷欄');
           }
-          setSlot(origin, displaced || null);
+          const originNote = getSlotNote(origin);
+          const targetNote = getSlotNote(ref);
+          setSlot(origin, displaced || null, true);
+          setSlot(ref, id, true);
+          setSlotNote(origin, targetNote);
+          setSlotNote(ref, originNote);
+        } else {
+          setSlot(ref, id, Boolean(origin));
         }
-        setSlot(ref, id);
         state.target = ref;
         saveStore('配置已更新');
         renderWorkspace();
@@ -668,17 +819,51 @@
     return null;
   }
 
-  function setSlot(ref, value) {
+  function linkedSkillRef(ref) {
+    if (ref.area === 'mobile') {
+      return { area: 'pc', page: ref.page ?? state.mobilePage, index: MOBILE_TO_PC[ref.index] };
+    }
+    if (ref.area === 'pc') {
+      return { area: 'mobile', page: ref.page, index: PC_TO_MOBILE[ref.index] };
+    }
+    return null;
+  }
+
+  function setSlot(ref, value, preserveNote = false) {
     const cfg = config();
+    const previous = getSlot(ref);
     if (ref.area === 'mobile') cfg.mobilePages[ref.page ?? state.mobilePage][ref.index] = value;
     if (ref.area === 'combo') cfg.combos[ref.group][ref.index] = value;
     if (ref.area === 'pc') cfg.pc[ref.page][ref.index] = value;
     if (ref.area === 'functions') cfg.functions[ref.index] = value;
+    const linked = linkedSkillRef(ref);
+    if (linked?.area === 'mobile') cfg.mobilePages[linked.page][linked.index] = value;
+    if (linked?.area === 'pc') cfg.pc[linked.page][linked.index] = value;
+    if (!preserveNote && previous !== value) setSlotNote(ref, '');
+  }
+
+  function getSlotNote(ref) {
+    const notes = config().slotNotes;
+    if (ref.area === 'mobile') return notes.mobilePages[ref.page ?? state.mobilePage][ref.index] || '';
+    if (ref.area === 'pc') return notes.pc[ref.page][ref.index] || '';
+    if (ref.area === 'functions') return notes.functions[ref.index] || '';
+    return '';
+  }
+
+  function setSlotNote(ref, value) {
+    const notes = config().slotNotes;
+    const clean = shortClientText(value, 300);
+    if (ref.area === 'mobile') notes.mobilePages[ref.page ?? state.mobilePage][ref.index] = clean;
+    if (ref.area === 'pc') notes.pc[ref.page][ref.index] = clean;
+    if (ref.area === 'functions') notes.functions[ref.index] = clean;
+    const linked = linkedSkillRef(ref);
+    if (linked?.area === 'mobile') notes.mobilePages[linked.page][linked.index] = clean;
+    if (linked?.area === 'pc') notes.pc[linked.page][linked.index] = clean;
   }
 
   function getKey(ref) {
     const keys = config().keys;
-    if (ref.area === 'mobile') return keys.mobile[ref.index];
+    if (ref.area === 'mobile') return keys.pc[ref.page ?? state.mobilePage][MOBILE_TO_PC[ref.index]] || keys.mobile[ref.index];
     if (ref.area === 'pc') return keys.pc[ref.page][ref.index];
     if (ref.area === 'functions') return keys.functions[ref.index];
     return '';
@@ -686,8 +871,15 @@
 
   function setKey(ref, value) {
     const keys = config().keys;
-    if (ref.area === 'mobile') keys.mobile[ref.index] = value;
-    if (ref.area === 'pc') keys.pc[ref.page][ref.index] = value;
+    if (ref.area === 'mobile') {
+      const page = ref.page ?? state.mobilePage;
+      keys.pc[page][MOBILE_TO_PC[ref.index]] = value;
+      if (page === 0) keys.mobile[ref.index] = value;
+    }
+    if (ref.area === 'pc') {
+      keys.pc[ref.page][ref.index] = value;
+      if (ref.page === 0) keys.mobile[PC_TO_MOBILE[ref.index]] = value;
+    }
     if (ref.area === 'functions') keys.functions[ref.index] = value;
   }
 
@@ -734,11 +926,16 @@
 
   function clearCurrent() {
     const cfg = config();
-    if (state.mode === 'mobile') cfg.mobilePages.forEach(page => page.fill(null));
+    if (state.mode === 'mobile' || state.mode === 'pc') {
+      cfg.mobilePages.forEach(page => page.fill(null));
+      cfg.pc.forEach(page => page.fill(null));
+      cfg.slotNotes.mobilePages.forEach(page => page.fill(''));
+      cfg.slotNotes.pc.forEach(page => page.fill(''));
+    }
     if (state.mode === 'combo') cfg.combos[state.comboGroup].fill(null);
     if (state.mode === 'pc') {
-      cfg.pc.forEach(page => page.fill(null));
       cfg.functions.fill(null);
+      cfg.slotNotes.functions.fill('');
     }
     state.target = null;
     saveStore('目前配置已清空');
@@ -751,7 +948,9 @@
     const mobileCount = cfg.mobilePages.flat().filter(Boolean).length;
     const comboCount = cfg.combos.flat().filter(Boolean).length;
     const pcCount = cfg.pc.flat().concat(cfg.functions).filter(Boolean).length;
-    submitSummary.textContent = `${currentJobName()}｜技能按鍵 ${mobileCount}/16｜組合技能 ${comboCount}/64｜PC 鍵盤 ${pcCount}/20`;
+    const noteCount = cfg.slotNotes.mobilePages.flat().concat(cfg.slotNotes.functions).filter(note => note.trim()).length;
+    const guide = cfg.jobGuide.description.trim() ? '已填' : '未填';
+    submitSummary.textContent = `${currentJobName()}｜技能按鍵 ${mobileCount}/16｜組合技能 ${comboCount}/64｜PC 鍵盤 ${pcCount}/20｜按鍵註記 ${noteCount}｜職業玩法 ${guide}`;
     submitError.textContent = '';
     submitOverlay.hidden = false;
     submitForm.querySelector('[name="submitter_name"]').focus({ preventScroll: true });
