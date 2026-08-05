@@ -658,18 +658,10 @@ body.sc-locked { overflow: hidden; }
   border-top: 1px solid var(--sc-line);
   display: flex;
   gap: 9px;
+  justify-content: flex-end;
   min-height: 68px;
   padding: 10px 16px;
 }
-
-.sc-status {
-  color: #698073;
-  font-size: .68rem;
-  font-weight: 800;
-  margin-right: auto;
-}
-
-.sc-status::before { color: #36a16d; content: "●"; margin-right: 6px; }
 
 .sc-button {
   background: #718ba5;
@@ -735,7 +727,6 @@ body.sc-locked { overflow: hidden; }
   .sc-group-button strong { height: 30px; }
   .sc-group-button small { display: none; }
   .sc-footer { flex-wrap: wrap; }
-  .sc-status { flex: 1 0 calc(100% - 10px); }
   .sc-button { flex: 1; min-width: 0; }
 }
 
@@ -891,7 +882,6 @@ body.sc-locked { overflow: hidden; }
 }
 .sc-set-dots b:first-child { background: var(--sc-orange); }
 
-.sc-recommend,
 .sc-button {
   background: transparent;
   border: 12px solid transparent;
@@ -1192,7 +1182,6 @@ body.sc-locked { overflow: hidden; }
   .sc-mobile-frame { padding: 5px; }
   .sc-game-controlbar { grid-template-columns: 1fr 1fr 40px; }
   .sc-type-switch { font-size: .65rem; }
-  .sc-recommend { font-size: .62rem; padding-inline: 4px; }
   .sc-keyboard-badge { height: 40px; width: 40px; }
   .sc-mobile-board { gap: 5px; grid-template-columns: repeat(3, minmax(66px, 92px)); grid-template-rows: repeat(3, minmax(66px, 92px)); padding: 8px; }
   .sc-mobile-board .sc-slot img { height: 54px; width: 54px; }
@@ -1381,7 +1370,6 @@ body.sc-locked { overflow: hidden; }
   .sc-combo-row { min-width: 720px; }
   .sc-combo-body { grid-template-columns: 190px minmax(330px, 1fr); }
   .sc-group-button span:last-child { display: block; }
-  .sc-footer .sc-status { flex-basis: 100%; }
 }
 
 @media (max-width: 470px) {

@@ -80,8 +80,6 @@
         </aside>
       </div>
       <footer class="sc-footer">
-        <span class="sc-status">草稿只儲存在這台裝置；提交後才會送給站長審核</span>
-        <button class="sc-button" type="button" data-action="reset">還原推薦</button>
         <button class="sc-button is-danger" type="button" data-action="clear">清空目前</button>
         <button class="sc-button" type="button" data-action="save">儲存草稿</button>
         <button class="sc-button is-primary" type="button" data-action="submit">提交建議</button>
@@ -493,8 +491,6 @@
   }
 
   function bindSlots() {
-    workspace.querySelector('.sc-recommend')?.addEventListener('click', resetRecommended);
-
     workspace.querySelector('.sc-mobile-page-switch')?.addEventListener('click', () => {
       state.mobilePage = state.mobilePage === 0 ? 1 : 0;
       state.target = null;
@@ -749,15 +745,6 @@
     renderWorkspace();
   }
 
-  async function resetRecommended() {
-    const jobCode = currentJobCode();
-    await loadPublishedDefault(jobCode, false, true);
-    state.configs[jobCode] = recommendedForCurrentJob();
-    state.target = null;
-    saveStore('已還原推薦配置');
-    renderWorkspace();
-  }
-
   function openSubmitDialog() {
     saveStore();
     const cfg = config();
@@ -906,7 +893,6 @@
   });
   shell.querySelector('.sc-footer').addEventListener('click', event => {
     const action = event.target.closest('[data-action]')?.dataset.action;
-    if (action === 'reset') resetRecommended();
     if (action === 'clear') clearCurrent();
     if (action === 'save') saveStore('草稿已儲存');
     if (action === 'submit') openSubmitDialog();
