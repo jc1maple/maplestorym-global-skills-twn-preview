@@ -41,6 +41,7 @@
     skills: [],
     skillMap: new Map(),
     configs: loadStore(),
+    configRevisions: new Map(),
     publishedDefaults: new Map(),
     defaultRequests: new Map(),
     toastTimer: 0,
@@ -145,6 +146,14 @@
   function saveStore(message = '') {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state.configs)); } catch (_) {}
     if (message) showToast(message);
+  }
+
+  function configRevision(jobCode = currentJobCode()) {
+    return state.configRevisions.get(jobCode) || 0;
+  }
+
+  function markConfigEdited(jobCode = currentJobCode()) {
+    state.configRevisions.set(jobCode, configRevision(jobCode) + 1);
   }
 
   function showToast(message, duration = 1500) {
@@ -364,6 +373,7 @@
     if (!CONFIG_ENDPOINT) return false;
     if (!force && state.publishedDefaults.has(jobCode)) return true;
     if (!force && state.defaultRequests.has(jobCode)) return state.defaultRequests.get(jobCode);
+    const requestedRevision = configRevision(jobCode);
     const request = (async () => {
       try {
         const response = await fetch(`${CONFIG_ENDPOINT}/skill-defaults?job_code=${encodeURIComponent(jobCode)}`, {
@@ -373,7 +383,7 @@
         if (!response.ok || !data.default?.config) return false;
         const normalized = normalizeConfig(data.default.config, makeGeneratedRecommendedConfig());
         state.publishedDefaults.set(jobCode, normalized);
-        if (applyWhenNoLocal && currentJobCode() === jobCode) {
+        if (applyWhenNoLocal && currentJobCode() === jobCode && configRevision(jobCode) === requestedRevision) {
           state.configs[jobCode] = cloneValue(normalized);
           saveStore();
           if (!shell.hidden) renderWorkspace();
@@ -630,6 +640,7 @@
         const key = field.classList.contains('sc-combo-name') ? 'name' : 'description';
         const limit = key === 'name' ? 32 : 300;
         config().comboMeta[index][key] = shortClientText(field.value, limit);
+        markConfigEdited();
         if (key === 'name') {
           const display = field.closest('.sc-combo-row')?.querySelector('.sc-group-name-display');
           if (display) display.textContent = config().comboMeta[index].name || `${index + 1} 號自訂`;
@@ -660,6 +671,7 @@
       jobGuideInput.addEventListener('input', () => {
         const value = shortClientText(jobGuideInput.value, 2000);
         config().jobGuide.description = value;
+        markConfigEdited();
         const counter = workspace.querySelector('.sc-job-guide-count');
         if (counter) counter.textContent = String(value.length);
         clearTimeout(state.noteSaveTimer);
@@ -810,13 +822,16 @@
     return null;
   }
 
-  function getSlot(ref) {
-    const cfg = config();
+  function slotValue(cfg, ref) {
     if (ref.area === 'mobile') return cfg.mobilePages[ref.page ?? state.mobilePage][ref.index];
     if (ref.area === 'combo') return cfg.combos[ref.group][ref.index];
     if (ref.area === 'pc') return cfg.pc[ref.page][ref.index];
     if (ref.area === 'functions') return cfg.functions[ref.index];
     return null;
+  }
+
+  function getSlot(ref) {
+    return slotValue(config(), ref);
   }
 
   function linkedSkillRef(ref) {
@@ -831,7 +846,9 @@
 
   function setSlot(ref, value, preserveNote = false) {
     const cfg = config();
-    const previous = getSlot(ref);
+    // Read from this exact normalized object. Calling getSlot() here would
+    // normalize again, replace state.configs[job], and leave `cfg` stale.
+    const previous = slotValue(cfg, ref);
     if (ref.area === 'mobile') cfg.mobilePages[ref.page ?? state.mobilePage][ref.index] = value;
     if (ref.area === 'combo') cfg.combos[ref.group][ref.index] = value;
     if (ref.area === 'pc') cfg.pc[ref.page][ref.index] = value;
@@ -840,6 +857,7 @@
     if (linked?.area === 'mobile') cfg.mobilePages[linked.page][linked.index] = value;
     if (linked?.area === 'pc') cfg.pc[linked.page][linked.index] = value;
     if (!preserveNote && previous !== value) setSlotNote(ref, '');
+    markConfigEdited();
   }
 
   function getSlotNote(ref) {
@@ -859,6 +877,7 @@
     const linked = linkedSkillRef(ref);
     if (linked?.area === 'mobile') notes.mobilePages[linked.page][linked.index] = clean;
     if (linked?.area === 'pc') notes.pc[linked.page][linked.index] = clean;
+    markConfigEdited();
   }
 
   function getKey(ref) {
@@ -881,6 +900,7 @@
       if (ref.page === 0) keys.mobile[PC_TO_MOBILE[ref.index]] = value;
     }
     if (ref.area === 'functions') keys.functions[ref.index] = value;
+    markConfigEdited();
   }
 
   function startKeyRecording(button, ref) {
@@ -937,6 +957,7 @@
       cfg.functions.fill(null);
       cfg.slotNotes.functions.fill('');
     }
+    markConfigEdited();
     state.target = null;
     saveStore('目前配置已清空');
     renderWorkspace();
