@@ -310,23 +310,6 @@ h1 {
   letter-spacing: 0.09em;
 }
 
-.header-note {
-  align-items: center;
-  color: #8a8e9b;
-  display: flex;
-  font-size: 0.64rem;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.live-dot {
-  background: var(--green);
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px rgba(53, 184, 143, 0.10);
-  height: 5px;
-  width: 5px;
-}
-
 main.wrap {
   padding-bottom: 76px;
   padding-top: 25px;
@@ -1507,8 +1490,7 @@ body.view-list .skill-card.is-collapsed::after {
   }
 
   .search-field kbd,
-  .job-field .control-label,
-  .header-note {
+  .job-field .control-label {
     display: none;
   }
 
