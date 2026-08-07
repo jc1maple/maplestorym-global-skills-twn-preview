@@ -122,6 +122,7 @@
   document.body.appendChild(shell);
 
   const app = shell.querySelector('.sc-app');
+  const mainPanel = shell.querySelector('.sc-main');
   const workspace = shell.querySelector('.sc-workspace');
   const palette = shell.querySelector('.sc-palette');
   const searchInput = shell.querySelector('.sc-search');
@@ -402,7 +403,7 @@
     jobChip.textContent = currentJobName();
     shell.hidden = false;
     document.body.classList.add('sc-locked');
-    render();
+    render({ resetScroll: true });
     closeButton.focus({ preventScroll: true });
     loadPublishedDefault(jobCode, !hadLocalConfig);
   }
@@ -415,15 +416,17 @@
     openButton.focus({ preventScroll: true });
   }
 
-  function render() {
-    renderWorkspace();
+  function render(options = {}) {
+    renderWorkspace(options);
     renderPalette();
     shell.querySelectorAll('.sc-tab').forEach(tab => {
       tab.setAttribute('aria-selected', String(tab.dataset.mode === state.mode));
     });
   }
 
-  function renderWorkspace() {
+  function renderWorkspace({ resetScroll = false } = {}) {
+    const workspaceScrollTop = resetScroll ? 0 : workspace.scrollTop;
+    const mainScrollTop = resetScroll ? 0 : mainPanel.scrollTop;
     const [title, description] = MODE_LABELS[state.mode];
     let body = '';
     if (state.mode === 'mobile') body = renderMobile();
@@ -435,6 +438,8 @@
         <span class="sc-help-chip">點按鍵 → 配置技能／撰寫註記</span>
       </div>${body}</div>`;
     bindSlots();
+    workspace.scrollTop = workspaceScrollTop;
+    mainPanel.scrollTop = mainScrollTop;
   }
 
   function renderMobile() {
@@ -1091,7 +1096,7 @@
       shell.querySelectorAll('.sc-filter').forEach(item => item.classList.toggle('is-active', item.dataset.type === 'all'));
     }
     state.target = null;
-    render();
+    render({ resetScroll: true });
   });
   shell.querySelector('.sc-library-filters').addEventListener('click', event => {
     const button = event.target.closest('.sc-filter');
@@ -1124,7 +1129,7 @@
     config();
     jobChip.textContent = currentJobName();
     state.target = null;
-    render();
+    render({ resetScroll: true });
     loadPublishedDefault(jobCode, !hadLocalConfig);
   });
 })();
