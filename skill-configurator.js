@@ -47,6 +47,7 @@
     toastTimer: 0,
     metaSaveTimer: 0,
     noteSaveTimer: 0,
+    workspaceRenderVersion: 0,
     submitting: false
   };
 
@@ -425,8 +426,12 @@
   }
 
   function renderWorkspace({ resetScroll = false } = {}) {
+    const previousComboGroups = workspace.querySelector('.sc-combo-groups');
     const workspaceScrollTop = resetScroll ? 0 : workspace.scrollTop;
     const mainScrollTop = resetScroll ? 0 : mainPanel.scrollTop;
+    const comboScrollTop = resetScroll ? 0 : previousComboGroups?.scrollTop || 0;
+    const comboScrollLeft = resetScroll ? 0 : previousComboGroups?.scrollLeft || 0;
+    const renderVersion = ++state.workspaceRenderVersion;
     const [title, description] = MODE_LABELS[state.mode];
     let body = '';
     if (state.mode === 'mobile') body = renderMobile();
@@ -438,8 +443,23 @@
         <span class="sc-help-chip">點按鍵 → 配置技能／撰寫註記</span>
       </div>${body}</div>`;
     bindSlots();
-    workspace.scrollTop = workspaceScrollTop;
-    mainPanel.scrollTop = mainScrollTop;
+    const restoreScrollPosition = () => {
+      if (renderVersion !== state.workspaceRenderVersion) return;
+      workspace.scrollTop = workspaceScrollTop;
+      mainPanel.scrollTop = mainScrollTop;
+      const comboGroups = workspace.querySelector('.sc-combo-groups');
+      if (comboGroups) {
+        comboGroups.scrollTop = comboScrollTop;
+        comboGroups.scrollLeft = comboScrollLeft;
+      }
+    };
+    restoreScrollPosition();
+    if (!resetScroll) {
+      window.requestAnimationFrame(() => {
+        restoreScrollPosition();
+        window.requestAnimationFrame(restoreScrollPosition);
+      });
+    }
   }
 
   function renderMobile() {
